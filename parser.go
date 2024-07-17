@@ -35,17 +35,13 @@ import (
 	"github.com/steelshot/eth-block-parser/rpc"
 )
 
-const (
-	MaxTx = 1000
-)
-
 type (
 	Parser interface {
-		// GetCurrentBlock last parsed block
+		// GetCurrentBlock Get the last parsed block that the parser queried
 		GetCurrentBlock() uint64
-		// Subscribe add address to observer
+		// Subscribe Start collecting inbound and outbound transactions for the given address
 		Subscribe(address string) (bool, error)
-		// GetTransactions list of inbound or outbound transactions for an address
+		// GetTransactions Will return any transactions for the given address if previously subscribed
 		GetTransactions(address string) ([]rpc.Transaction, error)
 	}
 )
@@ -56,22 +52,24 @@ type (
 		txChan   chan rpc.Transaction
 
 		endpoint  *url.URL
+		txCap     uint64
 		block     atomic.Uint64
 		addresses sync.Map
 	}
 )
 
-func NewParser(ctx context.Context, pollDuration time.Duration, endpoint string) (_ Parser, err error) {
+func NewParser(ctx context.Context, pollFrequency time.Duration, endpoint string, txCap uint64) (_ Parser, err error) {
 	p := &parser{
 		hashChan: make(chan string, math.MaxUint16),
 		txChan:   make(chan rpc.Transaction, math.MaxUint16),
+		txCap:    txCap,
 	}
 
 	if p.endpoint, err = url.Parse(endpoint); err != nil {
 		return nil, fmt.Errorf("invalid endpoint: %s", err)
 	}
 
-	go p.blockPoll(ctx, pollDuration)
+	go p.blockPoll(ctx, pollFrequency)
 	go p.transactionPoll(ctx)
 	go p.assignTxsToSubs(ctx)
 
@@ -120,7 +118,7 @@ func (p *parser) GetTransactions(address string) (_ []rpc.Transaction, err error
 	}
 }
 
-func (p *parser) blockPoll(ctx context.Context, pollDuration time.Duration) {
+func (p *parser) blockPoll(ctx context.Context, pollFreq time.Duration) {
 	wait := time.After(0)
 
 	slog.Debug("parser::blockPoll - Start")
@@ -131,7 +129,7 @@ BlockPoll:
 			break BlockPoll
 		case <-wait:
 			slog.Info("Getting latest block")
-			wait = time.After(pollDuration)
+			wait = time.After(pollFreq)
 
 			var (
 				err   error
@@ -155,8 +153,8 @@ BlockPoll:
 				"txCount", len(block.TxHashes))
 
 			// Artificial cap, to not hit rate limits
-			if len(block.TxHashes) > MaxTx {
-				block.TxHashes = block.TxHashes[:MaxTx]
+			if uint64(len(block.TxHashes)) > p.txCap {
+				block.TxHashes = block.TxHashes[:p.txCap]
 			}
 
 			for _, hash := range block.TxHashes {

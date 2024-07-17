@@ -79,3 +79,25 @@ The following approach also does have significant drawbacks;
   should fully suffice for this example and works better with the std library packages (casting without over/underflow checks), since most numeric types use a concrete size **uint64 vs uint** or **int64 vs int**.
 - Improvement: None of the interface functions have any error checking, being idiomatic to Go and effective API handling, I've added error handling to Subscribe and GetTransactions functions.
 - Notes: https://eth.public-rpc.com is not so strictly rate-limited
+
+## Usage
+
+You can start the cmd package by building it or running it directly via **go run cmd/main.go**
+
+```text
+Usage of cmd.exe:
+  -debug
+        debug mode
+  -endpoint string
+        eth endpoint (default "https://eth.public-rpc.com")
+  -poll-freq duration
+        poll duration (default 10s)
+  -tx-cap uint
+        tx rate (default 300)
+```
+
+A local http server will be spawned on port :8123, available endpoints are:
+- GET /currentBlock
+- PUT /subscribe/{address}
+- GET /transactions/{address}
+

@@ -32,9 +32,10 @@ import (
 )
 
 var (
-	fDebug        bool
-	fEndpoint     string
-	fPollDuration time.Duration
+	fDebug    bool
+	fEndpoint string
+	fPollFreq time.Duration
+	fTxCap    uint64
 )
 
 var (
@@ -44,8 +45,9 @@ var (
 
 func init() {
 	flag.BoolVar(&fDebug, "debug", false, "debug mode")
-	flag.StringVar(&fEndpoint, "endpoint", "https://cloudflare-eth.com/", "eth endpoint")
-	flag.DurationVar(&fPollDuration, "poll-duration", 10*time.Second, "poll duration")
+	flag.StringVar(&fEndpoint, "endpoint", "https://eth.public-rpc.com", "eth endpoint")
+	flag.DurationVar(&fPollFreq, "poll-frequency", 10*time.Second, "poll frequency")
+	flag.Uint64Var(&fTxCap, "tx-cap", 300, "tx rate")
 
 	flag.Parse()
 
@@ -72,7 +74,7 @@ func main() {
 		}}
 
 	slog.Info("Starting parser", "endpoint", fEndpoint)
-	if parser, err = ebp.NewParser(ctx, fPollDuration, fEndpoint); err != nil {
+	if parser, err = ebp.NewParser(ctx, fPollFreq, fEndpoint, fTxCap); err != nil {
 		panic(err)
 	}
 
